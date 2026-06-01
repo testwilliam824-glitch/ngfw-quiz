@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>Palo Alto NGFW Engineer 練習測驗</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f7fa; color: #222; }
+  header { background: linear-gradient(135deg,#fa582d,#c8102e); color: #fff; padding: 24px; border-radius: 12px; margin-bottom: 20px; }
+  header h1 { margin: 0 0 8px 0; font-size: 22px; }
+  header p { margin: 0; opacity: .9; font-size: 14px; }
+  #stats { background: #fff; padding: 14px 18px; border-radius: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); position: sticky; top: 0; z-index: 10; }
+  #stats div { font-size: 14px; }
+  #stats b { color: #fa582d; font-size: 16px; }
+  .controls { margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .controls button, .nav button { background: #fff; border: 1px solid #ddd; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .controls button:hover, .nav button:hover { background: #fff5f0; border-color: #fa582d; }
+  .q { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .q .num { font-weight: 700; color: #c8102e; margin-bottom: 8px; font-size: 14px; }
+  .q .stem { white-space: pre-wrap; line-height: 1.55; margin-bottom: 14px; font-size: 15px; }
+  .multi-hint { display: inline-block; background: #fff5f0; color: #c8102e; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px; }
+  .opt { display: block; padding: 10px 12px; margin: 6px 0; background: #fafafa; border: 1.5px solid #e8e8e8; border-radius: 8px; cursor: pointer; transition: all .15s; line-height: 1.45; font-size: 14px; }
+  .opt:hover { background: #fff5f0; border-color: #fa582d; }
+  .opt input { margin-right: 10px; }
+  .opt.selected { border-color: #fa582d; background: #fff5f0; }
+  .opt.correct { border-color: #16a34a; background: #f0fdf4; }
+  .opt.wrong { border-color: #dc2626; background: #fef2f2; }
+  .opt.reveal-correct { border-color: #16a34a; background: #f0fdf4; box-shadow: inset 0 0 0 1px #16a34a; }
+  .submit { margin-top: 8px; background: #fa582d; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .submit:hover { background: #c8102e; }
+  .submit:disabled { background: #ccc; cursor: not-allowed; }
+  .feedback { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+  .feedback.ok { background: #f0fdf4; color: #16a34a; border-left: 4px solid #16a34a; }
+  .feedback.ng { background: #fef2f2; color: #dc2626; border-left: 4px solid #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 20px; padding-bottom: 40px; }
+  #questionList { display: grid; grid-template-columns: repeat(auto-fill,minmax(40px,1fr)); gap: 4px; padding: 10px; background: #fff; border-radius: 8px; margin-bottom: 16px; max-height: 200px; overflow-y: auto; }
+  #questionList span { padding: 6px; text-align: center; cursor: pointer; border-radius: 4px; font-size: 12px; background: #f0f0f0; }
+  #questionList span.done-ok { background: #bbf7d0; color: #14532d; }
+  #questionList span.done-ng { background: #fecaca; color: #7f1d1d; }
+  #questionList span:hover { outline: 2px solid #fa582d; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ Palo Alto NGFW Engineer — 互動練習</h1>
+  <p>共 121 題 · 點選答案後按「送出」即時對答 · 進度自動儲存在瀏覽器</p>
+</header>
+
+<div id="stats">
+  <div>已作答：<b id="answered">0</b> / 121</div>
+  <div id="scoreBlock" style="display:none">答對：<b id="okCnt">0</b></div>
+  <div id="scoreBlock2" style="display:none">答錯：<b id="ngCnt">0</b></div>
+  <div id="scoreBlock3" style="display:none">正確率：<b id="rate">—</b></div>
+</div>
+
+<div class="controls">
+  <button onclick="submitAll()" style="background:#fa582d;color:#fff;border-color:#fa582d;font-weight:600">✅ 全部送出評分</button>
+  <button onclick="reshuffle()" style="background:#1E2761;color:#fff;border-color:#1E2761;font-weight:600">🎲 重新洗牌</button>
+  <button onclick="resetAll()">🔄 全部重置</button>
+  <button onclick="toggleList()">📋 題號跳轉</button>
+  <button onclick="window.scrollTo({top:0,behavior:'smooth'})">⬆️ 回到頂端</button>
+</div>
+
+<div style="background:#fff5f0;border-left:4px solid #fa582d;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;color:#555">
+  💡 <b>隨機模式</b>：每次載入或點「重新洗牌」時，題目順序與選項順序都會打亂；正確答案會自動跟著選項一起重新對應。
+</div>
+
+<div id="questionList" style="display:none"></div>
+
+<div id="quiz"></div>
+
+<script>
+const QUESTIONS = [
+{n:1,multi:true,ans:["B","D"],stem:`To maintain security efficacy of its public cloud resources by using native tools, a company purchases Cloud NGFW credits to replicate Panorama, PA-Series, and VM-Series devices used in physical data centers. Resources exist on AWS and Azure:
+- AWS uses AWS Transit Gateway connecting all resources
+- Azure has each application independently routing traffic
+
+Requirements: Minimize changes; Scale efficiently; Unify Security policies. Which two implementations meet these requirements? (Choose two.)`,opts:{A:"Deploy a VM-Series firewall in AWS in each VPC, create an IPSec tunnel between AWS and Azure, manage with Panorama.",B:"Deploy Cloud NGFW for Azure in vNETs, update vNET routing to path traffic through deployed NGFWs, manage with Panorama.",C:"Deploy Cloud NGFW for Azure in vWAN, create a vWAN to route traffic to the Cloud NGFW, manage with local rules.",D:"Deploy Cloud NGFW for AWS in a centralized Security VPC, update TGW to route traffic through the Security VPC, manage with Panorama."}},
+{n:2,ans:["A"],stem:`During an upgrade to the routing infrastructure, the network administrator wants to implement Advanced Routing Engine (ARE) on a Palo Alto Networks firewall. Which firewall models support this configuration?`,opts:{A:"PA-5280, PA-7080, PA-3250, VM-Series",B:"PA-455, VM-Series, PA-1410, PA-5450",C:"PA-3260, PA-5410, PA-850, PA-460",D:"PA-7050, PA-1420, VM-Series, CN-Series"}},
+{n:3,multi:true,ans:["A","B"],stem:`Which two statements apply to configuring required security rules when setting up an IPSec tunnel between a Palo Alto Networks firewall and a third-party gateway? (Choose two.)`,opts:{A:"For incoming/outgoing traffic through the tunnel, creating separate rules for each direction is optional.",B:"The IKE negotiation and IPSec/ESP packets are allowed by default via the intrazone default allow policy.",C:"For incoming/outgoing traffic through the tunnel, separate rules must be created for each direction.",D:"The IKE negotiation and IPSec/ESP packets are denied by default via the interzone default deny policy."}},
+{n:4,ans:["C"],stem:`Which statement describes the role of Terraform in deploying Palo Alto Networks NGFWs?`,opts:{A:"It acts as a logging service for NGFW performance metrics.",B:"It orchestrates real-time traffic inspection for network segments.",C:"It provides Infrastructure-as-Code (IaC) to automate NGFW deployment.",D:"It manages threat intelligence data synchronization with NGFWs."}},
+{n:5,ans:["D"],stem:`By default, which type of traffic is configured by service route configuration to use the management interface?`,opts:{A:"Security zone",B:"IPSec tunnel",C:"Virtual system (VSYS)",D:"Autonomous Digital Experience Manager (ADEM)"}},
+{n:6,ans:["D"],stem:`In regard to the Advanced Routing Engine (ARE), what must be enabled first when configuring a logical router on a PAN-OS firewall?`,opts:{A:"License",B:"Plugin",C:"Content update",D:"General setting"}},
+{n:7,multi:true,ans:["A","D"],stem:`Which two zone types are valid when configuring a new security zone? (Choose two.)`,opts:{A:"Tunnel",B:"Intrazone",C:"Internal",D:"Virtual Wire"}},
+{n:8,ans:["A"],stem:`An organization has configured GlobalProtect in a hybrid authentication model using certificate-based authentication for pre-logon and SAML-based MFA for user logon. How does the GlobalProtect agent process the authentication flow on Windows endpoints?`,opts:{A:"Uses machine certificate to establish pre-logon tunnel; upon user sign-in, prompts for SAML MFA credentials, validating both device and user identities before granting full access.",B:"Uses machine certificate during pre-logon, then reuses the same certificate for user authentication without requiring MFA.",C:"After machine certificate validated at pre-logon, endpoint completes MFA on behalf of user via Windows Credential Provider without prompting.",D:"Requires user to log in first for SAML MFA before establishing pre-logon tunnel, making pre-logon certificate authentication redundant."}},
+{n:9,ans:["C"],stem:`An NGFW engineer is configuring Panorama-managed firewalls to send logs to Strata Logging Service while continuing to forward to Panorama log collectors. Which configuration task must be performed?`,opts:{A:`Modify all active Log Forwarding profiles to select "Cloud Logging" in each profile match list in the appropriate device groups.`,B:`Enable the "Panorama/Cloud Logging" option under Device → Setup → Management in templates.`,C:`Select "Enable Duplicate Logging" in the Cloud Logging section under Device → Setup → Management in templates.`,D:`Select "Enable Cloud Logging" in the Cloud Logging section under Device → Setup → Management in templates.`}},
+{n:10,ans:["C"],stem:`An NGFW engineer is configuring multiple Layer 2 interfaces, all assigned to the same VLAN. Clients behind different interfaces cannot communicate. Which action resolves this issue?`,opts:{A:"Configure each interface in the same Layer 2 zone and enable IP routing between them.",B:"Assign each interface to the appropriate Layer 2 zone and configure a policy allowing traffic within the VLAN.",C:"Assign each interface to the appropriate Layer 2 zone and configure Security policies for interfaces not assigned to the same zone.",D:"Enable IP routing between the interfaces and configure a Security policy to allow traffic between interfaces within the VLAN."}},
+{n:11,ans:["B"],stem:`In a GlobalProtect environment using certificate-based authentication, what function do certificate profiles serve?`,opts:{A:"Store private keys for users/devices, allowing firewall to reissue certificates if primary CA becomes unavailable.",B:"Define trust anchors (root/intermediate CAs), specify revocation checks (CRL/OCSP), and map certificate attributes (e.g., CN) for user/device authentication.",C:"Allow firewall to bypass certificate validation entirely, focusing only on username/password authentication.",D:"Provide one-click distribution of certificates to all endpoints without external enrollment methods."}},
+{n:12,ans:["D"],stem:`How does a Palo Alto Networks NGFW respond when the preemptive hold time is set to 0 minutes during route monitoring configuration?`,opts:{A:"It does not accept the configuration.",B:"It accepts but throws a warning message.",C:"It removes the static route because 0 is a NULL value.",D:"It reinstalls the route into the RIB as soon as the path comes up."}},
+{n:13,ans:["B"],stem:`After configuring an IPSec tunnel with a Cisco ASA, the PAN firewall reports tunnel failing to establish. Which action resolves this?`,opts:{A:"Ensure an active static/dynamic route exists for VPN peer with next hop as tunnel interface.",B:"Configure the Proxy IDs to match the Cisco ASA configuration.",C:"Check that IPSec is enabled in the management profile on the external interface.",D:"Validate the tunnel interface VLAN against the peer's configuration."}},
+{n:14,ans:["C"],stem:`Which LACP configuration will enable pre-negotiation for an Aggregate Ethernet (AE) interface on an HA active/passive pair?`,opts:{A:`Set Transmission Rate to "fast."`,B:`Set passive link state to "Auto."`,C:`Set "Enable in HA Passive State."`,D:`Set LACP mode to "Active."`}},
+{n:15,ans:["D"],stem:`When integrating Kubernetes with Palo Alto Networks NGFWs, what is used to secure traffic between microservices?`,opts:{A:"Service graph",B:"Ansible automation modules",C:"Panorama RBAC",D:"CN-Series firewalls"}},
+{n:16,ans:["C"],stem:`When configuring a Zone Protection profile, in which section would you configure options to protect against spoofed IP addresses and split handshake session establishment attempts?`,opts:{A:"Flood Protection",B:"Protocol Protection",C:"Packet-Based Attack Protection",D:"Reconnaissance Protection"}},
+{n:17,multi:true,ans:["A","B"],stem:`For which two purposes is an IP address configured on a tunnel interface? (Choose two.)`,opts:{A:"Use of dynamic routing protocols",B:"Tunnel monitoring",C:"Use of peer IP",D:"Redistribution of User-ID"}},
+{n:18,ans:["B"],stem:`Which PAN-OS method of mapping users to IP addresses is the most reliable?`,opts:{A:"Port mapping",B:"GlobalProtect",C:"Syslog",D:"Server monitoring"}},
+{n:19,ans:["A"],stem:`In an active/active HA configuration with two PA-Series firewalls, how do the firewalls use the HA3 interface?`,opts:{A:"To forward packets to the HA peer during session setup and asymmetric traffic flow",B:"To exchange hellos, heartbeats, HA state info, and management plane synchronization",C:"To synchronize sessions, forwarding tables, IPSec SAs, and ARP tables between firewalls",D:"To perform session cache synchronization among all HA peers with same cluster ID"}},
+{n:20,ans:["D"],stem:`Customer requires users not directly access websites; a security device must create the connection with authentication back to AD. Which action meets the requirements?`,opts:{A:"Deploy transparent proxy with WCCP.",B:"Deploy NGFWs as normal and install User-ID agent.",C:"Deploy Advanced URL Filtering license and captive portal.",D:"Deploy explicit proxy with Kerberos authentication scheme."}},
+{n:21,ans:["D"],stem:`What must be configured before a firewall administrator can define policy rules based on users and groups?`,opts:{A:"User Mapping profile",B:"Authentication profile",C:"Group mapping settings",D:"LDAP Server profile"}},
+{n:22,ans:["B"],stem:`Which statement applies to the relationship between Panorama-pushed Security policy and local firewall Security policy?`,opts:{A:"When a policy match is found locally, Panorama shared post-rules are still evaluated.",B:"Local firewall rules are evaluated after Panorama pre-rules and before Panorama post-rules.",C:"Panorama post-rules can be configured to be evaluated before local firewall policy for troubleshooting.",D:"The order of policy evaluation can be configured differently in different device groups."}},
+{n:23,ans:["A"],stem:`Which networking technology can be configured on Layer 3 interfaces but not on Layer 2 interfaces?`,opts:{A:"DDNS",B:"Link Duplex",C:"NetFlow",D:"LLDP"}},
+{n:24,ans:["D"],stem:`What is a result of enabling split tunneling in the GlobalProtect portal configuration with the "Both Network Traffic and DNS" option?`,opts:{A:"Specifies when secondary DNS server is used for resolution for domains not managed by VPN.",B:"Allows users to access internal resources locally and external resources remotely using same FQDN.",C:"Allows devices on local network to access blocked websites by changing DNS resolution.",D:"Specifies which domains are resolved by VPN-assigned DNS servers and which by local DNS servers."}},
+{n:25,ans:["D"],stem:`According to dynamic updates best practices, what is the recommended threshold value for content updates in a mission-critical network?`,opts:{A:"8 hours",B:"16 hours",C:"32 hours",D:"48 hours"}},
+{n:26,ans:["B"],stem:`Which type of firewall resource can be assigned when configuring a new firewall virtual system (VSYS)?`,opts:{A:"CPU",B:"Sessions limit",C:"Memory",D:"Security profile limit"}},
+{n:27,ans:["A"],stem:`Which forwarding methods can be used on the Objects tab when configuring the Log Forwarding profile?`,opts:{A:"Panorama, syslog, email",B:"Syslog, HTTP, NetFlow",C:"Panorama, ADEM, syslog",D:"SNMP, HTTP, RADIUS"}},
+{n:28,ans:["D"],stem:`In a hybrid cloud deployment, what is the primary function of Ansible in managing Palo Alto Networks NGFWs?`,opts:{A:"Provides web interface for managing NGFW hardware clusters.",B:"Enables centralized log collection and correlation for NGFWs.",C:"Facilitates dynamic updates to NGFW threat databases.",D:"Automates NGFW policy updates and configurations through playbooks."}},
+{n:29,multi:true,ans:["C","D"],stem:`Palo Alto Networks NGFWs use SSL/TLS profiles to secure which two types of connections? (Choose two.)`,opts:{A:"NAT tables",B:"User Authentication",C:"GlobalProtect Gateways",D:"GlobalProtect Portal"}},
+{n:30,ans:["D"],stem:`How does a Palo Alto firewall choose the best route when it receives routes for the same destination from different routing protocols?`,opts:{A:"First-received route is entered into forwarding table; subsequent routes rejected.",B:"It will load balance traffic across all routes.",C:"Compares administrative distance and chooses highest value.",D:"Compares administrative distance and chooses lowest value."}},
+{n:31,ans:["B"],stem:`Large enterprise wants certificate-based auth for users/devices using AD CS as CA, requires OCSP checks, multiple AD forests, Panorama management, distinct certificate profiles for GP portals/gateways, frequent revocation checks with minimal latency. Which approach best addresses these requirements?`,opts:{A:"Deploy self-signed certificates at each site; turn off revocation checks; rely on IP-based GP rules; single certificate profile for users and devices.",B:"Distribute root/intermediate CA certificates via Panorama as shared objects; configure OCSP responder profiles on each firewall with CRL fallback; separate certificate profiles for user vs device; automate enrollment via Group Policy or SCEP.",C:"Configure each firewall independently to trust root/intermediate CAs; rely only on manual CRL checks; import certificates directly into each firewall's local store.",D:"Obtain wildcard certificates from public CA; CRL polling at default interval; manually install user certificates; sync firewall stores via manual SSH updates."}},
+{n:32,ans:["C"],stem:`Organization runs Kubernetes clusters on-premises and in multiple public clouds. Wants CN-Series for east-west traffic security, consistent policies across environments, dynamic scaling, centralized Panorama. Which approach meets these requirements?`,opts:{A:"Install standalone CN-Series with local config only; export daily snapshots to Panorama for recordkeeping.",B:"Deploy CN-Series only in public cloud; rely on Kubernetes Network Policies on-premises; manually sync partial info to Panorama.",C:"Use Kubernetes-native deployment tools (e.g., Helm) to deploy CN-Series in each cluster with local insertion into service mesh/CNI; manage centrally from Panorama with uniform policies.",D:"Deploy single CN-Series on-premises to process traffic for all clusters via VPN/peering; manage via Panorama."}},
+{n:33,ans:["C"],stem:`When deploying Palo Alto NGFWs in a cloud service provider environment, which method ensures HA across multiple availability zones?`,opts:{A:"Deploying Ansible scripts for zone-specific scaling",B:"Implementing Terraform templates for redundancy within one availability zone",C:"Using load balancer and health probes",D:"Configuring active/active HA"}},
+{n:34,ans:["A"],stem:`An MSP application needs to programmatically create SD-WAN interfaces via API. What is required?`,opts:{A:`REST API's "sdwanInterfaceprofiles" parameter on a Panorama device`,B:`REST API's "sdwanInterfaces" parameter on a firewall device`,C:`XML API's "sdwanprofiles/interfaces" parameter on a Panorama device`,D:`XML API's "InterfaceProfiles/sdwan" parameter on a firewall device`}},
+{n:35,multi:true,ans:["A","D"],stem:`Which two actions in the IKE Gateways will allow implementation of post-quantum cryptography when building VPNs between multiple PAN NGFWs? (Choose two.)`,opts:{A:"Select IKE v2, enable Advanced Options → PQ PPK, then set a 64+ character string for the post-quantum pre-shared key.",B:`Ensure Authentication is set to "certificate," then import a post-quantum derived certificate.`,C:`Select IKE v2 Preferred, enable Advanced Options → PQ KEM, then add one or more "Rounds."`,D:`Select IKE v2, enable Advanced Options → PQ KEM, then create an IKE Crypto Profile with Advanced Options adding one or more "Rounds."`}},
+{n:36,ans:["B"],stem:`Inter-VSYS traffic between accounting and marketing VSYS isn't passing despite separate VRs with inter-VR static routes, external zones, and security policies allowing traffic. What additional configuration is required?`,opts:{A:"Create a transit VSYS and route all inter-VSYS traffic through it.",B:"Add each VSYS to the list of visible virtual systems of the other VSYS.",C:`Enable the "allow inter-VSYS traffic" option in both external zone configurations.`,D:"Create Security policies to allow traffic between the two external zones."}},
+{n:37,ans:["C"],stem:`Without performing a context switch, which set of operations can be performed that will affect operation of a connected firewall on Panorama GUI?`,opts:{A:"Restarting local firewall, running packet capture, accessing firewall CLI",B:"Modification of local security rules, modification of L3 interface, modification of firewall hostname",C:"Modification of pre-security rules, modification of virtual router, modification of IKE Gateway Network Profile",D:"Modification of post NAT rules, creation of new views on local ACC tab, creation of local custom reports"}},
+{n:38,ans:["B"],stem:`Which set of options is available for detailed logs when building a custom report on a PAN NGFW?`,opts:{A:"Traffic, User-ID, URL",B:"Traffic, threat, data filtering, User-ID",C:"GlobalProtect, traffic, application statistics",D:"Threat, GlobalProtect, application statistics, WildFire submissions"}},
+{n:39,ans:["A"],stem:`Recommended upgrade process for active/passive HA to minimize disruption?`,opts:{A:"Suspend active to trigger failover to passive. Upgrade suspended (now passive) firewall, confirm operation, fail back, then upgrade remaining.",B:"Shut down active and upgrade offline, let passive handle traffic. Rejoin cluster, then upgrade passive.",C:"Isolate both firewalls and upgrade offline. Reconnect after validating new version.",D:"Push new PAN-OS to both firewalls simultaneously, rely on automated HA reconvergence."}},
+{n:40,multi:true,ans:["C","D"],stem:`Which two statements describe an external zone in the context of VSYS on a PAN firewall? (Choose two.)`,opts:{A:"It is associated with an interface within a VSYS of a firewall.",B:"It is a security object associated with a specific virtual router of a VSYS.",C:"It is not associated with an interface; it is associated with a VSYS itself.",D:"It is a security object associated with a specific VSYS."}},
+{n:41,ans:["C"],stem:`Which zone type allows traffic between zones in different VSYS without the traffic leaving the firewall?`,opts:{A:"Isolated",B:"Transient",C:"External",D:"Internal"}},
+{n:42,ans:["B"],stem:`Multinational organization wants CIE for identity aggregation from AD, Azure AD, Okta with strict data isolation per region. Each region's firewalls must only receive relevant user/group info. Which approach achieves this?`,opts:{A:"One CIE tenant aggregating all identity data; redistribute full dataset to all firewalls; per-firewall Security policies restrict access.",B:"Separate CIE tenants for each business unit, integrating each tenant with relevant identity sources; redistribute data only to that region's firewalls with strict one-to-one mapping.",C:"Disable redistribution; configure each regional firewall to pull user/group details directly from local IdPs.",D:"Single CIE tenant collecting all data; configure segments within tenant to filter and redistribute only relevant data to each regional firewall group."}},
+{n:43,multi:true,ans:["A","C"],stem:`Implementing SAML for admin auth while keeping RADIUS running in parallel for 6 months. Which two actions meet the criteria? (Choose two.)`,opts:{A:"Create a testing and rollback plan for the transition from RADIUS to SAML, as the two authentication profiles cannot be run in tandem.",B:`Create an authentication sequence including both "RADIUS" Server Profile and "SAML Identity Provider" Server Profile to run in tandem.`,C:`Create and apply an authentication profile with the "SAML Identity Provider" Server Profile.`,D:`Add the "SAML Identity Provider" Server Profile to the authentication profile for the "RADIUS" Server Profile.`}},
+{n:44,ans:["B"],stem:`Enterprise uses GP with user/machine cert auth, pre-logon, OCSP, minimal disruption, multiple firewalls via Panorama, domain-issued machine certs via GPO. Which approach ensures continuous secure connectivity and consistent policy?`,opts:{A:"Wildcard certificate from public CA; disable all revocation checks; manage renewals manually.",B:"Distribute root/intermediate CAs via Panorama template; distinct certificate profiles for user vs machine certs; reference internal OCSP responder; automate cert deployment with GPO.",C:"Single certificate profile for both user and machine certs; rely solely on CRLs.",D:"Self-signed certs on each firewall; IP-based auth to override cert checks; default GP settings."}},
+{n:45,multi:true,ans:["C","D"],stem:`Which statements apply to Log Collector Groups? (注意：原 PDF 標兩個正確選項)`,opts:{A:"Log redundancy is available only if each Log Collector has the same total disk storage.",B:"Enabling redundancy increases log processing traffic in a Collector Group by 50%.",C:"In any single Collector Group, all Log Collectors must run on the same Panorama model.",D:"The maximum number of Log Collectors in a Log Collector Group is 18 plus two hot spares."}},
+{n:46,ans:["C"],stem:`Which interface types should be used to configure link monitoring for HA deployment on PAN NGFW?`,opts:{A:"HA, Virtual Wire, and Layer 2",B:"Tap, Virtual Wire, and Layer 3",C:"Virtual Wire, Layer 2, and Layer 3",D:"HA, Layer 2, and Layer 3"}},
+{n:47,ans:["C"],stem:`Which CLI command is used to configure the management interface as a DHCP client?`,opts:{A:"set network dhcp interface management",B:"set network dhcp type management-interface",C:"set deviceconfig system type dhcp-client",D:"set deviceconfig management type dhcp-client"}},
+{n:48,ans:["A"],stem:`Which configuration step is required when implementing a new self-signed root CA certificate for SSL decryption on a PAN firewall?`,opts:{A:"Import the new subordinate CA certificate into the trust stores of all client devices.",B:"Set the subordinate CA certificate as default routing certificate for all network traffic.",C:"Configure the subordinate CA to issue certificates with indefinite validity periods.",D:"Disable all existing SSL decryption rules until new certificate is fully propagated."}},
+{n:49,ans:["B"],stem:`What are the phases of the Palo Alto Networks AI Runtime Security: Network Intercept solution?`,opts:{A:"Scanning, Isolation, Whitelisting, Logging",B:"Discovery, Deployment, Detection, Prevention",C:"Policy Generation, Discovery, Enforcement, Logging",D:"Profiling, Policy Generation, Enforcement, Reporting"}},
+{n:50,ans:["C"],stem:`What is the purpose of assigning an Admin Role Profile to a user in PAN NGFW?`,opts:{A:"Allow access to all resources without restrictions.",B:"Enable MFA for administrator access.",C:"Define granular permissions for management tasks.",D:"Restrict access to sensitive report data."}},
+{n:51,ans:["A"],stem:`Deploying VM-Series in Azure, must be resilient to failure of entire Availability Zone. What is the recommended method?`,opts:{A:"Deploy multiple, independent VM-Series firewalls in different Availability Zones and use Azure Load Balancer to distribute traffic.",B:"Terraform configuration that redeploys firewall in new zone if original fails.",C:"Azure Traffic Manager to direct traffic to primary VM-Series with second firewall in another zone as failover.",D:"PAN-OS active/passive HA between two VM-Series in separate AZs using HA links over VNet peering."}},
+{n:52,ans:["B"],stem:`When creating a Log Forwarding profile on PAN-OS firewall, which set of methods is available?`,opts:{A:"Syslog, Panorama, SD-WAN",B:"Panorama/Cloud logging, email, Syslog",C:"Email, Syslog, NetFlow",D:"HTTP, RADIUS, SNMP"}},
+{n:53,ans:["D"],stem:`Company enables SSL Forward Proxy. Engineer generates new certificate flagged with "Forward Trust." What is the critical next step?`,opts:{A:"Set forward trust certificate as SSL/TLS Service profile for management interface.",B:"Create Security policy allowing traffic from firewall certificate to all zones.",C:"Import private key of forward trust certificate onto domain controller.",D:"Install public portion of forward trust certificate into trust store of all client machines."}},
+{n:54,multi:true,ans:["A","C"],stem:`Administrator assigns IP address to site-to-site IPSec VPN tunnel interface. Which two abilities are enabled? (Choose two.)`,opts:{A:"Configuring tunnel monitoring to verify liveliness of connection.",B:"Firewall performing NAT traversal.",C:"Running a dynamic routing protocol like OSPF over the tunnel.",D:"Firewall encrypting and decrypting packet payloads."}},
+{n:55,ans:["A"],stem:`DevOps team needs declarative Infrastructure as Code for deploying VM-Series firewalls including virtual networks, subnets, and firewalls. Which tool is primarily used?`,opts:{A:"Terraform",B:"Azure DevOps",C:"Ansible",D:"Panorama"}},
+{n:56,multi:true,ans:["B","C"],stem:`Segmenting firewall into VSYS-A and VSYS-B with external zones. What are two fundamental properties of the external zones? (Choose two.)`,opts:{A:"They must be linked to the same virtual router as the ingress interface.",B:"They represent their parent VSYS without being tied to a physical or logical interface.",C:"They are a security construct belonging to a single VSYS.",D:"They are automatically created when inter-VSYS routing is enabled."}},
+{n:57,ans:["D"],stem:`Engineer observes anomalous traffic: high volume of non-SYN TCP packets and many ICMP fragments. Which Zone Protection profile protection type must be configured?`,opts:{A:"Protocol Protection",B:"Flood Protection",C:"Reconnaissance Protection",D:"Packet-Based Attack Protection"}},
+{n:58,ans:["C"],stem:`Configuring GlobalProtect pre-logon VPN with internal CA certificates imported. Which configuration is required on the GlobalProtect Gateway?`,opts:{A:"Create device-based Security policy allowing traffic from pre-logon user to internal management zone.",B:"Create authentication profile pointing to machine certificate's CA and assign via Portal's client auth settings.",C:"Create certificate profile that trusts machine certificate's CA and assign within Gateway Agent → Client Authentication settings.",D:"Configure Gateway Agent → Tunnel Settings to use IPSec with machine certificate authentication for pre-logon tunnel."}},
+{n:59,multi:true,ans:["A","C"],stem:`Administrator replaces default self-signed certificate with one signed by internal CA. Which two features require this certificate via SSL/TLS service profile? (Choose two.)`,opts:{A:"User-ID agent redistribution",B:"RADIUS server authentication",C:"Authentication portal",D:"GlobalProtect gateway"}},
+{n:60,ans:["A"],stem:`Site-to-site VPN to partner's Check Point gateway fails during IKE Phase 2. Which configuration step is essential for compatibility with policy-based Check Point gateway?`,opts:{A:"Define local and remote subnets in Proxy ID settings.",B:"Create individual Security policies for each pair of local and remote subnets.",C:"Assign specific IP to tunnel interface to match Check Point gateway.",D:"Enable Dead Peer Detection (DPD) in IKE Gateway configuration."}},
+{n:61,ans:["A"],stem:`Which method creates the most reliable user-to-IP mapping due to direct authentication from user's device to the firewall?`,opts:{A:"Portal authentication",B:"PAN-OS XML API to push mappings",C:"Polling security event logs with User-ID agent",D:"Authentication logs from Syslog receiver"}},
+{n:62,ans:["A"],stem:`GlobalProtect gateway with split tunneling: users can browse public web but cannot resolve internal server names. DNS queries going to public DNS. Which portal setting resolves this?`,opts:{A:`Split tunneling for DNS and specify internal corporate domains in the "Domain" list`,B:"DNS Proxy feature on firewall to point clients to gateway IP for DNS",C:`"DNS Forwarding" option on gateway's tunnel interface`,D:"NAT rule to allow DNS traffic from GP clients to internal DNS servers"}},
+{n:63,ans:["D"],stem:`Which initial action is required to configure logical routers?`,opts:{A:`Changing virtual router type from "default" to "advanced"`,B:"Activating an advanced routing subscription",C:"Committing a new advanced routing software module",D:`Checking "advanced routing" in general settings`}},
+{n:64,ans:["B"],stem:`24/7 retailer upgrading active/passive HA cluster with zero downtime. Software already downloaded. Which sequence meets the requirement?`,opts:{A:"Scheduled software update job targeting both firewalls at same time; rely on HA election.",B:"Upgrade passive first; once operational, suspend active to fail over to upgraded device; upgrade remaining.",C:"Force active into suspended state; upgrade and reboot; suspend active to fail back; upgrade remaining.",D:"Disable HA synchronization on active; upgrade passive; re-enable sync; repeat on other firewall."}},
+{n:65,ans:["A"],stem:`Government agency requires explicit user web access mediation with SSO using AD credentials and manual browser configuration to firewall IP. Which feature set?`,opts:{A:"Web proxy in explicit mode with Authentication policy using Kerberos",B:"Decryption policy redirecting users to SAML IdP for authentication",C:"Web proxy in transparent mode with Authentication policy using MFA",D:"User-ID agent integration with Authentication Portal"}},
+{n:66,ans:["B"],stem:`Financial institution prioritizing operational stability. Current content update threshold is 24 hours. Per PAN best practices for mission-critical, which adjustment?`,opts:{A:`Change to "download only" and schedule manual installation.`,B:"Increase to 48 hours.",C:"Decrease to 12 hours.",D:"Reset to reconfirm 24 hours."}},
+{n:67,ans:["A"],stem:`What is the correct sequence of evaluation for Security policy rulebases?`,opts:{A:"Panorama Pre-Rules → Local Firewall Rules → Panorama Post-Rules",B:"Panorama Post-Rules → Panorama Pre-Rules → Local Firewall Rules",C:"Panorama Shared Rules → Local Firewall Rules → Device Group Rules",D:"Local Firewall Rules → Panorama Pre-Rules → Panorama Post-Rules"}},
+{n:68,ans:["C"],stem:`Firewall on isolated management network needs to download threat prevention and software updates. Which service must be rerouted through data plane via service route?`,opts:{A:"External dynamic lists",B:"GlobalProtect Clientless VPN",C:"Palo Alto Networks Services",D:"Syslog"}},
+{n:69,ans:["D"],stem:`How does Ansible enable IaC for managing PAN firewalls?`,opts:{A:"Provides real-time threat intelligence feeds to firewall data plane",B:"Provides GUI with drag-and-drop policy creation",C:"Automatically discovers and maps all network devices for baseline configuration",D:"Defines firewall configurations in playbooks that can be version-controlled and executed repeatedly"}},
+{n:70,ans:["A"],stem:`To retrieve AD group info for Security policy rules, which configuration object must be created first to establish connection with AD server?`,opts:{A:"LDAP server profile",B:"User-ID agent service account",C:"Authentication sequence",D:"Kerberos server profile"}},
+{n:71,ans:["D"],stem:`When creating a new VSYS, which resource can be explicitly limited to control its capacity?`,opts:{A:"Dedicated dataplane memory",B:"Maximum number of admin accounts",C:"Maximum number of log entries",D:"Maximum number of NAT rules"}},
+{n:72,ans:["A"],stem:`Separate production and development environments managed by Panorama, using CIE with AD and Okta. Dev firewalls must only see DEV/QA groups, Prod firewalls only see Prod groups. Minimal complexity enforcement?`,opts:{A:`Create two segments — one with only "DEV"/"QA" groups, one with "Prod" groups. Redistribute each to corresponding firewall group.`,B:"Redistribute all info to all firewalls; use Panorama Device Group hierarchy with different Group Mapping profiles.",C:`Create CLI filters for "Prod", "DEV", and "QA" groups.`,D:"Configure two separate CIE instances, one for production and one for development."}},
+{n:73,ans:["B"],stem:`Which set of actions is available to administrator directly from Panorama UI without context switching?`,opts:{A:"Creating a new VLAN, assigning interface to VLAN, configuring new DHCP server on firewall",B:"Modifying a pre-rule, editing a shared service object, creating a new certificate profile",C:"Accessing CLI, restarting the device, installing latest content and software",D:"Configuring new IPSec tunnel, modifying IKE gateway, changing DNS server settings"}},
+{n:74,ans:["B"],stem:`Configuring AE interface on active/passive HA pair. Want passive firewall's AE fully negotiated before becoming active. Which LACP setting?`,opts:{A:"LACP Mode active",B:"Enable in HA passive state",C:"System Priority: 1",D:"Transmission Rate: fast"}},
+{n:75,ans:["C"],stem:`New firewall management interface should auto-obtain IP/netmask/gateway from network. Which CLI command?`,opts:{A:"set deviceconfig system interface mgt mode dhcp",B:"set network interface management dhcp enable",C:"set deviceconfig system type dhcp-client",D:"configure system management-interface ip dynamic"}},
+{n:76,ans:["D"],stem:`When multiple routes have the same destination prefix, which attribute does firewall use first to determine route preference?`,opts:{A:"Administrative distance",B:"Route metric",C:"Next-hop availability",D:"Longest prefix match"}},
+{n:77,multi:true,ans:["B","D"],stem:`Secure AWS (Transit Gateway) and Azure (vWAN hub) with managed PAN solution, policies from Panorama, least impact on app teams, use existing hub-spoke. Which two actions? (Choose two.)`,opts:{A:"Deploy Cloud NGFW endpoints in every application VPC, ignoring TGW.",B:"Deploy Cloud NGFW into vWAN hub as trusted security partner, update routing policies.",C:"Deploy individual VM-Series in each spoke VNet, manage as device group in Panorama.",D:"Deploy Cloud NGFW endpoints into security VPC, adjust TGW route tables to inspect traffic through hub."}},
+{n:78,ans:["D"],stem:`Cloud team wants NGFW deployable natively as container and managed by Panorama for Kubernetes environments. Which form factor?`,opts:{A:"Cloud NGFW",B:"PA-5400 Series",C:"VM-Series",D:"CN-Series"}},
+{n:79,multi:true,ans:["B","C"],stem:`Site-to-site IPSec VPN planning. Which two Security policy requirements must be included? (Choose two.)`,opts:{A:"Policy must explicitly permit IPSec container application between external-facing zone and local zone.",B:"Policy must explicitly permit only IKE application between external-facing zone and local zone.",C:"A pair of policies required to control flow of data traffic into and out of security zone assigned to tunnel interface.",D:"Default interzone-default security policy is sufficient to allow tunnel negotiation."}},
+{n:80,ans:["A"],stem:`Engineer needs to permit traffic between two VSYS on one firewall without egressing externally. Which zone type acts as logical source/destination?`,opts:{A:"External",B:"TAP",C:"Layer 3",D:"Layer 2"}},
+{n:81,ans:["C"],stem:`What is the requirement for interface link speeds when configuring a virtual wire on PAN firewall?`,opts:{A:"Must be configured with auto-negotiate settings regardless of port type.",B:"Must all be either copper or fiber optic, however can be different.",C:"Must have same link speed and transmission mode.",D:"Must be same media type."}},
+{n:82,ans:["B"],stem:`Which IP-based service is only available if physical interface is set to Layer 3 mode?`,opts:{A:"DDNS client",B:"NetFlow export",C:"QoS",D:"Link monitoring"}},
+{n:83,ans:["B"],stem:`After primary link recovers, firewall immediately switches traffic back from backup to primary static route. Which preemptive hold time value causes this?`,opts:{A:"Lowest possible value greater than 0",B:"0",C:"Default value",D:"Feature disabled"}},
+{n:84,ans:["D"],stem:`Firewall has: ethernet1/1 (L3), ethernet1/2 (TAP), ethernet1/3 (L2), ethernet1/4 (virtual wire). Which interfaces can be added to a link group for HA monitoring?`,opts:{A:"ethernet1/1, ethernet1/2, ethernet1/4",B:"ethernet1/1, ethernet1/2, ethernet1/3",C:"ethernet1/2, ethernet1/3, ethernet1/4",D:"ethernet1/1, ethernet1/3, ethernet1/4"}},
+{n:85,ans:["B"],stem:`Large-scale PKI deployment with thousands of users. Goal: efficient revocation checks with minimal impact and delay. What is the primary advantage of OCSP over CRLs?`,opts:{A:"OCSP allows firewall to act as own CA, simplifying certificate management.",B:"OCSP provides real-time status for certificate on demand, more scalable, uses less firewall memory.",C:"OCSP is older, more widely supported protocol than CRLs.",D:"OCSP bundles all certificate statuses into single digitally signed file for faster downloads."}},
+{n:86,ans:["C"],stem:`AWS data center migration with VM-Series for ingress/egress inspection. Need multi-AZ resilience and horizontal scaling. Which combination is required?`,opts:{A:"AWS Lambda monitors firewall health and reroutes traffic using AWS API",B:"PAN-OS active/active HA pair with AWS Transit Gateway",C:"Amazon EC2 Auto Scaling group with VM-Series and Amazon Gateway Load Balancer",D:"Single VM-Series with Elastic IP that can be re-associated upon failure"}},
+{n:87,multi:true,ans:["A","D"],stem:`Which two services are configured by applying an SSL/TLS service profile? (Choose two.)`,opts:{A:"Global Protect portal",B:"Log forwarding to Strata Logging Service",C:"Forward-Trust certificate",D:"Syslog server monitoring"}},
+{n:88,ans:["B"],stem:`After onboarding firewalls to Strata Logging Service via template, SecOps team can no longer see new logs on on-premises Panorama log collectors (logs appear in Strata correctly). Which setting was missed?`,opts:{A:"Device certificates for Panorama log collectors not renewed after enabling cloud logging.",B:"Duplicate logging (cloud and on-premises) is disabled under Device → Setup → Management.",C:"Log Forwarding profile modified to send only to Strata Logging Service.",D:"Panorama log collectors not defined as primary destinations within collector group configuration."}},
+{n:89,ans:["B"],stem:`What is a valid configurable limit for setting resource quotas when defining a new VSYS?`,opts:{A:"Percentage of total CPU utilization",B:"Maximum number of SSL decryption rules",C:"Maximum number of virtual routers",D:"Disk space allocation for logs"}},
+{n:90,ans:["D"],stem:`Which User-ID source is most accurate due to mapping being explicitly created through authentication event directly with the firewall?`,opts:{A:"X-Forwarded-For (XFF) headers",B:"Server monitoring",C:"GlobalProtect",D:"Authentication Portal"}},
+{n:91,ans:["C"],stem:`After HA failover test, 30-45 sec delay before traffic flows through LACP aggregate interface on newly active firewall. What should have been configured for LACP pre-negotiation?`,opts:{A:"Enable LACP fast failover.",B:"Set LACP mode to passive.",C:"Enable in HA passive state.",D:"Set HA link monitoring to aggressive."}},
+{n:92,ans:["B"],stem:`Automation workflow: Step 1 deploy VM-Series in vSphere with VM config and network interfaces. Step 2 connect and configure complex Security policies. Team uses Terraform and Ansible. For which part would Terraform typically be used?`,opts:{A:"Pushing threat intelligence updates to the new firewall",B:"Deploying the VM and associated network interfaces",C:"Storing credentials needed to access vSphere environment",D:"Applying the detailed Security policies and objects"}},
+{n:93,ans:["B"],stem:`CIE gathers user info from on-prem AD (employees) and Azure AD (external partners). Internal-network firewalls must NOT have any identity info about external partners; DMZ firewalls only see partner identities. Which CIE feature solves this?`,opts:{A:"Panorama templates pushing different User-ID agent configs to each firewall group",B:"Segments — distinct, filter-based views of users/groups redistributed only to appropriate firewalls",C:"Multiple tenants — separate CIE tenant for each user directory",D:"Directory sync filtering at source to prevent specific OUs from being imported"}},
+{n:94,multi:true,ans:["A","B"],stem:`What are two valid zone types selectable from zone configuration menu per PAN best practices? (Choose two.)`,opts:{A:"Layer 3",B:"Layer 2",C:"Management",D:"DMZ"}},
+{n:95,ans:["D"],stem:`Hospital patient record system firewall. Concern: maximum stability, avoid disruption from problematic content update. Per PAN best practices, which threshold for content updates?`,opts:{A:"0 hours",B:"12 hours",C:"24 hours",D:"48 hours"}},
+{n:96,ans:["A"],stem:`GP portal split tunneling: route DNS for specific domains via VPN, allow other DNS to be resolved locally. What is the effect?`,opts:{A:"Provides selective DNS resolution — specified domains resolved through tunnel, optimizing performance for other lookups.",B:"Blocks access to all domains not explicitly listed in split tunnel configuration.",C:"Forces all applications to use corporate DNS servers regardless of split tunnel settings.",D:"Creates DNS proxy on client endpoint that forwards all queries to firewall for inspection."}},
+{n:97,ans:["C"],stem:`Python script to standardize SD-WAN deployments via Panorama; create path quality profiles for latency/jitter/packet loss monitoring. Which API call?`,opts:{A:"XML API with xpath config/devices/entry/vsys/entry/path-quality-profiles on Panorama",B:"XML API with xpath sdwan/path-quality-profiles on managed firewall",C:"POST request to SDWanPathQualityProfiles object endpoint via REST API on Panorama",D:"POST request to pathMonitoringProfiles object endpoint via REST API on managed firewall"}},
+{n:98,ans:["A"],stem:`Creating custom report for consolidated view of network events. Which valid set of databases is available?`,opts:{A:"Threat, URL Filtering, WildFire Submissions, GlobalProtect",B:"Traffic, User-ID, Application Statistics, HIP Match",C:"Data Filtering, IP-Tag, User-ID, Endpoint Security",D:"System, Config, Authentication, Session Flow"}},
+{n:99,ans:["B"],stem:`Policy: TCP session to external web server must be established by firewall (not workstation); browsers configured to point to firewall; authentication required. Which solution?`,opts:{A:"Transparent proxy",B:"Explicit proxy",C:"GlobalProtect with User-ID",D:"Decryption policy with Authentication Portal"}},
+{n:100,ans:["C"],stem:`New site-to-site VPN to third-party policy-based gateway. First subnet pair works; newly added remote subnet fails. Routing and Security policies confirmed. Most likely cause?`,opts:{A:"Static route for new subnet pointing to tunnel interface is missing.",B:"Security policy for new subnet must be placed above existing VPN policy.",C:"New local and remote subnets are missing from Proxy ID configuration.",D:"Tunnel MTU size must be increased to accommodate new traffic."}},
+{n:101,ans:["D"],stem:`GP solution requirements: (1) IT admins can run scripts/push updates before user login; (2) Users authenticate with cloud IdP protected by MFA. Which authentication config?`,opts:{A:"Cookie-based authentication for both pre-logon and user logon.",B:"SAML authentication for pre-logon and certificate-based authentication for user logon.",C:"Single authentication profile using Kerberos for both pre-logon and user logon.",D:"Certificate-based authentication for pre-logon and SAML authentication for user logon."}},
+{n:102,ans:["D"],stem:`What is the primary use case for the CN-Series NGFW?`,opts:{A:"Protecting mobile users and remote branch offices (east-west)",B:"Providing security for physical data center perimeters (north-south)",C:"Securing traffic in and out of public cloud VPC or VNet (north-south)",D:"Enforcing Security policies between pods in Kubernetes environment (east-west)"}},
+{n:103,ans:["D"],stem:`Need to enable OCSP verification for CAs used in authentication process. In which configuration object?`,opts:{A:"Authentication sequence",B:"Decryption profile",C:"SSL/TLS service profile",D:"Certificate profile"}},
+{n:104,ans:["D"],stem:`SSL Forward Proxy enabled with self-signed certificate as forward trust. Users report "Your connection is not private" errors for all external websites. Most likely cause?`,opts:{A:`Decryption policy configured with "no-decrypt" action causes browsers to reject connection.`,B:"External websites use TLS 1.3 which cannot be decrypted without specific license.",C:"Firewall's forward untrust certificate has expired.",D:"Firewall's self-signed CA certificate is not deployed to trusted certificate store on client endpoints."}},
+{n:105,multi:true,ans:["A","C"],stem:`Site-to-site IPSec VPN to partner. IKE Gateway and IPSec tunnel configured, tunnel interface in security zone. Tunnel fails to establish; no application traffic. Which two Security policy configurations are required? (Choose two.)`,opts:{A:"Security rule allowing IKE and IPSec traffic between zone of physical interface and zone of partner gateway.",B:"Single bidirectional security rule to manage traffic flowing through tunnel interface.",C:"Security rules permitting application traffic from local zone to tunnel zone, and from tunnel zone to local zone.",D:"Application Override policy to allow both IKE negotiation and encapsulated data traffic."}},
+{n:106,ans:["B"],stem:`Configuring path monitoring for primary static route. Want immediate failback when path restored. Which preemptive hold time value?`,opts:{A:"-1",B:"0",C:"1",D:"2"}},
+{n:107,ans:["C"],stem:`Resilient architecture for inspecting traffic in GCP. Must maintain firewall service if single GCP zone unavailable. Which architecture for VM-Series?`,opts:{A:"Ansible playbook monitoring primary firewall health and launching new one in different zone on failure",B:"Single large VM-Series in one zone configured for live migration to another zone upon failure",C:"Instance group of VM-Series spread across multiple zones with traffic routed by GCP Internal Load Balancer",D:"PAN-OS active/active HA cluster with dedicated HA interfaces in shared VPC"}},
+{n:108,ans:["B"],stem:`PA-440 acting as switch with L2 interfaces in VLAN 20. File server on ethernet1/1, clients on ethernet1/2 and ethernet1/3. Clients can't reach file server. Which step is missing?`,opts:{A:"Create Aggregate Ethernet (AE) group including all three interfaces.",B:"Place ethernet1/1, ethernet1/2, and ethernet1/3 into the same Layer 2 zone.",C:`Create "allow" Security policy with source/destination VLAN set to "VLAN 20".`,D:"Create Layer 3 subinterface for VLAN 20 to enable routing."}},
+{n:109,ans:["D"],stem:`Which feature can be enabled on a Layer 3 interface but is NOT available on Layer 2 interfaces?`,opts:{A:"NetFlow profile",B:"LLDP profile",C:"QoS profile",D:"DHCP client"}},
+{n:110,multi:true,ans:["A","D"],stem:`Site-to-site VPN that auto fails over to backup link and dynamically exchanges routes. Which two features necessitate assigning IP to tunnel interface? (Choose two.)`,opts:{A:"Tunnel monitoring",B:"Proxy ID configuration",C:"IKEv2 protocol support",D:"Dynamic routing"}},
+{n:111,multi:true,ans:["C","D"],stem:`Migrating GP user auth from LDAP to Kerberos for 90 days. Firewall should attempt Kerberos first, fall back to LDAP. Which two configurations are required? (Choose two.)`,opts:{A:"Configure new RADIUS proxy on firewall to handle both Kerberos and LDAP.",B:"Implement User-ID Group Mapping policy to link users between LDAP and Kerberos directories.",C:"Configure authentication sequence listing Kerberos authentication profile first, followed by LDAP authentication profile.",D:"Configure new authentication profile that references Kerberos server profile."}},
+{n:112,ans:["A"],stem:`Want firewall-generated management traffic (e.g., Strata Logging Service) to use dedicated in-band data port instead of out-of-band management port. Which setting?`,opts:{A:"Service route",B:"Interface Management profile",C:"Virtual router",D:"Static route"}},
+{n:113,ans:["C"],stem:`MSSP creating new VSYS. To prevent customer traffic from overwhelming firewall's state table, which resource limit?`,opts:{A:"Max security profiles",B:"Max bandwidth",C:"Max sessions",D:"Max Log Forwarding profiles"}},
+{n:114,multi:true,ans:["A","B"],stem:`Which two PAN firewall services are secured by attaching an SSL/TLS service profile? (Choose two.)`,opts:{A:"Authentication portal",B:"GlobalProtect portal",C:"LDAP server profiles",D:"Prisma Access service connections"}},
+{n:115,multi:true,ans:["A","B"],stem:`Comply with quantum-resistant cryptography directive for IKEv2 VPN tunnels between PA-Series firewalls. Which two actions? (Choose two.)`,opts:{A:"Configure IKE Crypto profile with one or more post-quantum rounds and apply to IKE Gateway configured for post-quantum key exchange mechanism.",B:"Establish shared secret of at least 64 characters and configure as post-quantum PPK within IKEv2-only IKE Gateway.",C:"Generate post-quantum PPK and apply within IPSec tunnel configuration's advanced settings.",D:"Enable GlobalProtect with quantum-resistant tunneling and apply profile to IKE Gateway."}},
+{n:116,multi:true,ans:["C","D"],stem:`Cloud workload security with managed firewall integrated with Panorama, scalable, minimal routing changes. AWS distributed (each VPC has own IGW); Azure with vWAN hub. Which two deployments? (Choose two.)`,opts:{A:"Native cloud provider firewalls in both environments connected to Panorama",B:"Cloud NGFW in each spoke VNet with UDRs to redirect traffic bypassing vWAN hub",C:"Cloud NGFW endpoints in each application VPC, updating VPC route tables to direct traffic through endpoints",D:"Cloud NGFW as security partner in vWAN hub with routing configured to send traffic through NGFW"}},
+{n:117,ans:["A"],stem:`Holding company with two acquired businesses, each with own Okta IdP. Single CIE instance for all. Company A firewalls only get Company A's Okta data; Company B firewalls only get Company B's data. Highest operational efficiency?`,opts:{A:"Configure a CIE tenant, connect Okta, and create segments.",B:"Configure firewalls for each company to query their respective Okta IdPs directly, bypassing CIE.",C:"Push all identity data to Panorama and use group mapping include/exclude lists.",D:"Create master CIE tenant for holding company peered with two subordinate tenants."}},
+{n:118,ans:["A"],stem:`PAN-OS firewall configured for client certificate auth. Root CA loaded. Client certs issued by intermediate CA signed by root. Authentication fails with "invalid certificate" error. Most likely cause?`,opts:{A:"Intermediate CA certificate has not been imported onto firewall and added to trust chain.",B:"Client certificates generated with insecure key length (e.g., 1024-bit RSA).",C:"Firewall clock out of sync with CA server by more than 5 minutes.",D:"OCSP responder unreachable and no CRL fallback configured."}},
+{n:119,ans:["A"],stem:`Want to maintain logging to on-premises Panorama log collectors for low-latency queries while also forwarding to Strata Logging Service for archival. Cloud logging already enabled. Which additional step?`,opts:{A:"Enable duplicate logging (cloud and on-premises) under Device → Setup → Management in templates.",B:"Enable log syncing and commit template changes to both on-premises and cloud collectors.",C:"Add Strata Logging Service as secondary destination in collector group settings.",D:"Add Panorama log collector and Strata Logging Service IPs to cloud logging service routes."}},
+{n:120,ans:["B"],stem:`Which set of maintenance tasks can administrator fully execute directly from Panorama UI without using Context Switch?`,opts:{A:"Edit a post-rule. Create a new certificate profile. Configure the firewall's hostname.",B:"Download and install a new content update. View current firewall session details. Initiate a device reboot.",C:"Create a new zone. Configure a new virtual router. View the local ACC on the firewall.",D:"Modify IP address of L3 interface. Configure new local administrator account. Edit a pre-rule."}},
+{n:121,ans:["B"],stem:`When deploying a pair of PAN firewalls in active/active HA cluster, what is the dedicated role of the HA3 link?`,opts:{A:"Control plane synchronization for heartbeats and state information",B:"Packet forwarding for session setup and asymmetric traffic",C:"Management plane synchronization for configurations and policies",D:"Data plane synchronization for session tables and forwarding tables"}},
+];
+
+const STORAGE_KEY = 'ngfw_quiz_state_v2';
+const SHUFFLE_KEY = 'ngfw_quiz_shuffle_v2';
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+// shuffleMap[origQn] = { qOrder: index, optMap: { displayLetter: origLetter } }
+let shuffleMap = JSON.parse(localStorage.getItem(SHUFFLE_KEY) || 'null');
+let displayOrder = []; // array of question objects in display order
+
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveShuffle() { localStorage.setItem(SHUFFLE_KEY, JSON.stringify(shuffleMap)); }
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildShuffle() {
+  shuffleMap = {};
+  const qOrder = shuffleArray(QUESTIONS.map(q => q.n));
+  qOrder.forEach((qn, idx) => {
+    const q = QUESTIONS.find(x => x.n === qn);
+    const origKeys = ['A','B','C','D'].filter(k => q.opts[k]);
+    const shuffled = shuffleArray(origKeys);
+    const optMap = {};
+    const labels = ['A','B','C','D'];
+    shuffled.forEach((origK, i) => { optMap[labels[i]] = origK; });
+    shuffleMap[qn] = { idx, optMap };
+  });
+  saveShuffle();
+}
+
+function renderQuiz() {
+  if (!shuffleMap) buildShuffle();
+  // Build display order
+  displayOrder = QUESTIONS.slice().sort((a,b) => shuffleMap[a.n].idx - shuffleMap[b.n].idx);
+
+  const container = document.getElementById('quiz');
+  container.innerHTML = '';
+  displayOrder.forEach((q, displayIdx) => {
+    const div = document.createElement('div');
+    div.className = 'q';
+    div.id = 'q' + q.n;
+    const inputType = q.multi ? 'checkbox' : 'radio';
+    const multiHint = q.multi ? `<span class="multi-hint">複選 ${q.ans.length} 項</span>` : '';
+    const optMap = shuffleMap[q.n].optMap;
+    let optsHtml = '';
+    for (const displayK of ['A','B','C','D']) {
+      const origK = optMap[displayK];
+      if (!origK || !q.opts[origK]) continue;
+      optsHtml += `<label class="opt" data-q="${q.n}" data-k="${origK}" data-dk="${displayK}">
+        <input type="${inputType}" name="q${q.n}" value="${origK}" onchange="onSelect(${q.n})">
+        <b>${displayK}.</b> ${escapeHtml(q.opts[origK])}
+      </label>`;
+    }
+    div.innerHTML = `
+      <div class="num">第 ${displayIdx + 1} 題　<span style="color:#888;font-weight:400">(原題庫 Q${q.n})</span> ${multiHint}</div>
+      <div class="stem">${escapeHtml(q.stem)}</div>
+      ${optsHtml}
+      <div class="feedback" id="fb${q.n}" style="display:none"></div>
+    `;
+    container.appendChild(div);
+  });
+  restoreState();
+  renderList();
+  updateStats();
+}
+
+function reshuffle() {
+  if (!confirm('重新洗牌會清除目前的作答紀錄，確定嗎？')) return;
+  state = {};
+  saveState();
+  buildShuffle();
+  renderQuiz();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// Convert original letter to display letter
+function origToDisplay(qn, origK) {
+  const map = shuffleMap[qn].optMap;
+  for (const dK in map) if (map[dK] === origK) return dK;
+  return origK;
+}
+
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function onSelect(n) {
+  const sel = getSelected(n);
+  document.querySelectorAll(`.opt[data-q="${n}"]`).forEach(el => {
+    el.classList.toggle('selected', sel.includes(el.dataset.k));
+  });
+  // Save selection only (don't reveal correctness yet)
+  state[n] = { sel, submitted: false };
+  saveState();
+  updateStats();
+  renderList();
+}
+
+function getSelected(n) {
+  return Array.from(document.querySelectorAll(`input[name="q${n}"]:checked`)).map(i => i.value);
+}
+
+function submitAll() {
+  const unanswered = QUESTIONS.filter(q => !state[q.n] || state[q.n].sel.length === 0);
+  if (unanswered.length > 0) {
+    if (!confirm(`還有 ${unanswered.length} 題未作答，仍要送出評分？\n（未作答將視為答錯）`)) return;
+  }
+  QUESTIONS.forEach(q => {
+    const s = state[q.n] || { sel: [] };
+    const correct = arrayEqual([...s.sel].sort(), [...q.ans].sort());
+    state[q.n] = { sel: s.sel, submitted: true, correct };
+    showResult(q.n);
+  });
+  saveState();
+  updateStats();
+  renderList();
+  // Scroll to top to show score
+  window.scrollTo({top:0, behavior:'smooth'});
+  // Show final score banner
+  const ok = Object.values(state).filter(s => s.correct).length;
+  setTimeout(() => alert(`🎉 評分完成！\n\n答對 ${ok} / ${QUESTIONS.length} 題\n正確率：${Math.round(ok/QUESTIONS.length*100)}%`), 400);
+}
+
+function arrayEqual(a, b) {
+  return a.length === b.length && a.every((v,i) => v === b[i]);
+}
+
+function showResult(n) {
+  const q = QUESTIONS.find(x => x.n === n);
+  const s = state[n];
+  if (!s || !s.submitted) return;
+  document.querySelectorAll(`.opt[data-q="${n}"]`).forEach(el => {
+    el.classList.remove('selected','correct','wrong','reveal-correct');
+    const isUserPicked = s.sel.includes(el.dataset.k);
+    const isCorrectAns = q.ans.includes(el.dataset.k);
+    if (isUserPicked && isCorrectAns) el.classList.add('correct');
+    else if (isUserPicked && !isCorrectAns) el.classList.add('wrong');
+    else if (!isUserPicked && isCorrectAns) el.classList.add('reveal-correct');
+    el.querySelector('input').disabled = true;
+  });
+  const fb = document.getElementById('fb'+n);
+  fb.style.display = 'block';
+  // Convert original letters → display letters for current shuffle
+  const displayAns = q.ans.map(k => origToDisplay(n, k)).sort();
+  const displaySel = s.sel.map(k => origToDisplay(n, k)).sort();
+  if (s.correct) {
+    fb.className = 'feedback ok';
+    fb.innerHTML = `✅ 答對了！正確答案：<b>${displayAns.join(', ')}</b>`;
+  } else {
+    fb.className = 'feedback ng';
+    fb.innerHTML = `❌ 答錯。您選：<b>${displaySel.join(', ') || '(未作答)'}</b>　正確答案：<b>${displayAns.join(', ')}</b>`;
+  }
+}
+
+function restoreState() {
+  for (const n in state) {
+    const s = state[n];
+    (s.sel || []).forEach(k => {
+      const inp = document.querySelector(`input[name="q${n}"][value="${k}"]`);
+      if (inp) inp.checked = true;
+    });
+    // restore visual selected state
+    document.querySelectorAll(`.opt[data-q="${n}"]`).forEach(el => {
+      el.classList.toggle('selected', (s.sel || []).includes(el.dataset.k));
+    });
+    if (s.submitted) showResult(parseInt(n));
+  }
+}
+
+function updateStats() {
+  const answered = Object.values(state).filter(s => s.sel && s.sel.length > 0).length;
+  document.getElementById('answered').textContent = answered;
+
+  const hasScored = Object.values(state).some(s => s.submitted);
+  ['scoreBlock','scoreBlock2','scoreBlock3'].forEach(id =>
+    document.getElementById(id).style.display = hasScored ? '' : 'none'
+  );
+  if (hasScored) {
+    const ok = Object.values(state).filter(s => s.correct).length;
+    const ng = QUESTIONS.length - ok;
+    document.getElementById('okCnt').textContent = ok;
+    document.getElementById('ngCnt').textContent = ng;
+    document.getElementById('rate').textContent = Math.round(ok/QUESTIONS.length*100)+'%';
+  }
+}
+
+function renderList() {
+  const list = document.getElementById('questionList');
+  list.innerHTML = '';
+  displayOrder.forEach((q, idx) => {
+    const s = document.createElement('span');
+    s.textContent = idx + 1;
+    s.title = `原題庫 Q${q.n}`;
+    const st = state[q.n];
+    if (st && st.submitted) {
+      s.className = st.correct ? 'done-ok' : 'done-ng';
+    } else if (st && st.sel && st.sel.length > 0) {
+      s.style.background = '#ffe9d6';
+    }
+    s.onclick = () => document.getElementById('q'+q.n).scrollIntoView({behavior:'smooth',block:'start'});
+    list.appendChild(s);
+  });
+}
+
+function toggleList() {
+  const list = document.getElementById('questionList');
+  list.style.display = list.style.display === 'none' ? 'grid' : 'none';
+}
+
+function resetAll() {
+  if (!confirm('確定要清除全部作答紀錄並重新洗牌？')) return;
+  state = {};
+  saveState();
+  localStorage.removeItem(SHUFFLE_KEY);
+  shuffleMap = null;
+  location.reload();
+}
+
+renderQuiz();
+</script>
+</body>
+</html>
