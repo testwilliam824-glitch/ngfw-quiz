@@ -50,14 +50,13 @@
 </header>
 
 <div id="stats">
-  <div>已作答：<b id="answered">0</b> / 121</div>
-  <div id="scoreBlock" style="display:none">答對：<b id="okCnt">0</b></div>
-  <div id="scoreBlock2" style="display:none">答錯：<b id="ngCnt">0</b></div>
-  <div id="scoreBlock3" style="display:none">正確率：<b id="rate">—</b></div>
+  <div>進度：<b id="answered">0</b> / 121</div>
+  <div>答對：<b id="okCnt">0</b></div>
+  <div>答錯：<b id="ngCnt">0</b></div>
+  <div>正確率：<b id="rate">—</b></div>
 </div>
 
 <div class="controls">
-  <button onclick="submitAll()" style="background:#fa582d;color:#fff;border-color:#fa582d;font-weight:600">✅ 全部送出評分</button>
   <button onclick="reshuffle()" style="background:#1E2761;color:#fff;border-color:#1E2761;font-weight:600">🎲 重新洗牌</button>
   <button onclick="resetAll()">🔄 全部重置</button>
   <button onclick="toggleList()">📋 題號跳轉</button>
@@ -65,7 +64,7 @@
 </div>
 
 <div style="background:#fff5f0;border-left:4px solid #fa582d;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;color:#555">
-  💡 <b>隨機模式</b>：每次載入或點「重新洗牌」時，題目順序與選項順序都會打亂；正確答案會自動跟著選項一起重新對應。
+  💡 <b>逐題即時對答 + 隨機模式</b>：每題作答後按「送出答案」立即顯示對錯。題目與選項順序每次載入皆會打亂。
 </div>
 
 <div id="questionList" style="display:none"></div>
@@ -262,6 +261,7 @@ function renderQuiz() {
       <div class="num">第 ${displayIdx + 1} 題　<span style="color:#888;font-weight:400">(原題庫 Q${q.n})</span> ${multiHint}</div>
       <div class="stem">${escapeHtml(q.stem)}</div>
       ${optsHtml}
+      <button class="submit" id="btn${q.n}" onclick="checkAnswer(${q.n})">送出答案</button>
       <div class="feedback" id="fb${q.n}" style="display:none"></div>
     `;
     container.appendChild(div);
@@ -290,40 +290,30 @@ function origToDisplay(qn, origK) {
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function onSelect(n) {
+  // Only update visual selection state; don't save until user clicks 送出答案
   const sel = getSelected(n);
   document.querySelectorAll(`.opt[data-q="${n}"]`).forEach(el => {
     el.classList.toggle('selected', sel.includes(el.dataset.k));
   });
-  // Save selection only (don't reveal correctness yet)
-  state[n] = { sel, submitted: false };
-  saveState();
-  updateStats();
-  renderList();
 }
 
 function getSelected(n) {
   return Array.from(document.querySelectorAll(`input[name="q${n}"]:checked`)).map(i => i.value);
 }
 
-function submitAll() {
-  const unanswered = QUESTIONS.filter(q => !state[q.n] || state[q.n].sel.length === 0);
-  if (unanswered.length > 0) {
-    if (!confirm(`還有 ${unanswered.length} 題未作答，仍要送出評分？\n（未作答將視為答錯）`)) return;
+function checkAnswer(n) {
+  const q = QUESTIONS.find(x => x.n === n);
+  const sel = getSelected(n);
+  if (sel.length === 0) { alert('請先選擇答案'); return; }
+  if (q.multi && sel.length !== q.ans.length) {
+    if (!confirm(`此題需選 ${q.ans.length} 項，您只選了 ${sel.length} 項，仍要提交？`)) return;
   }
-  QUESTIONS.forEach(q => {
-    const s = state[q.n] || { sel: [] };
-    const correct = arrayEqual([...s.sel].sort(), [...q.ans].sort());
-    state[q.n] = { sel: s.sel, submitted: true, correct };
-    showResult(q.n);
-  });
+  const correct = arrayEqual([...sel].sort(), [...q.ans].sort());
+  state[n] = { sel, submitted: true, correct };
   saveState();
+  showResult(n);
   updateStats();
   renderList();
-  // Scroll to top to show score
-  window.scrollTo({top:0, behavior:'smooth'});
-  // Show final score banner
-  const ok = Object.values(state).filter(s => s.correct).length;
-  setTimeout(() => alert(`🎉 評分完成！\n\n答對 ${ok} / ${QUESTIONS.length} 題\n正確率：${Math.round(ok/QUESTIONS.length*100)}%`), 400);
 }
 
 function arrayEqual(a, b) {
@@ -355,6 +345,8 @@ function showResult(n) {
     fb.className = 'feedback ng';
     fb.innerHTML = `❌ 答錯。您選：<b>${displaySel.join(', ') || '(未作答)'}</b>　正確答案：<b>${displayAns.join(', ')}</b>`;
   }
+  const btn = document.getElementById('btn'+n);
+  if (btn) btn.style.display = 'none';
 }
 
 function restoreState() {
@@ -373,20 +365,14 @@ function restoreState() {
 }
 
 function updateStats() {
-  const answered = Object.values(state).filter(s => s.sel && s.sel.length > 0).length;
+  const submitted = Object.values(state).filter(s => s.submitted);
+  const answered = submitted.length;
+  const ok = submitted.filter(s => s.correct).length;
+  const ng = answered - ok;
   document.getElementById('answered').textContent = answered;
-
-  const hasScored = Object.values(state).some(s => s.submitted);
-  ['scoreBlock','scoreBlock2','scoreBlock3'].forEach(id =>
-    document.getElementById(id).style.display = hasScored ? '' : 'none'
-  );
-  if (hasScored) {
-    const ok = Object.values(state).filter(s => s.correct).length;
-    const ng = QUESTIONS.length - ok;
-    document.getElementById('okCnt').textContent = ok;
-    document.getElementById('ngCnt').textContent = ng;
-    document.getElementById('rate').textContent = Math.round(ok/QUESTIONS.length*100)+'%';
-  }
+  document.getElementById('okCnt').textContent = ok;
+  document.getElementById('ngCnt').textContent = ng;
+  document.getElementById('rate').textContent = answered ? Math.round(ok/answered*100)+'%' : '—';
 }
 
 function renderList() {
