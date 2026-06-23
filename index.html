@@ -46,11 +46,11 @@
 <body>
 <header>
   <h1>🛡️ Palo Alto NGFW Engineer — 互動練習</h1>
-  <p>共 121 題 · 點選答案後按「送出」即時對答 · 進度自動儲存在瀏覽器</p>
+  <p>共 130 題 · 點選答案後按「送出」即時對答 · 進度自動儲存在瀏覽器</p>
 </header>
 
 <div id="stats">
-  <div>進度：<b id="answered">0</b> / 121</div>
+  <div>進度：<b id="answered">0</b> / 130</div>
   <div>答對：<b id="okCnt">0</b></div>
   <div>答錯：<b id="ngCnt">0</b></div>
   <div>正確率：<b id="rate">—</b></div>
@@ -193,7 +193,16 @@ const QUESTIONS = [
 {n:118,ans:["A"],stem:"A network engineer has configured a PAN-OS firewall for client certificate authentication. The firewall has the corporate root CA certificate loaded. Client certificates are issued by an intermediate certificate authority (CA), which is signed by the root CA. However, when users attempt to connect, the authentication fails, and system logs indicate an \"invalid certificate\" error. What is the most likely cause of this authentication failure?",opts:{"A":"Intermediate CA certificate has not been imported onto the firewall and added to the trust chain.","B":"Client certificates were generated with an insecure key length (e.g., 1024-bit RSA).","C":"Firewall clock is out of sync with the CA server by more than five minutes.","D":"Online Certificate Status Protocol (OCSP) responder is unreachable, and no certificate revocation list (CRL) fallback is configured."}},
 {n:119,ans:["A"],stem:"An administrator is configuring firewalls via a Panorama template to forward logs to a newly provisioned Strata Logging Service instance. The operational requirement is to maintain existing logging to on-premises Panorama log collectors for immediate, low-latency queries while also forwarding logs to Strata Logging Service for long-term archival. The administrator has already configured and enabled cloud logging connectivity. Which additional step is necessary to meet the operational requirement?",opts:{"A":"Enable duplicate logging (cloud and on-premises) under Device → Setup → Management in the appropriate templates.","B":"Enable log syncing and commit the template changes to both the on-premises and cloud collectors.","C":"In the collector group settings, add the Strata Logging Service as a secondary destination for the on-premises collector.","D":"Add the Panorama log collector and Strata Logging Service IP addresses to the cloud logging service routes to ensure dual-path cloud and on-premises reachability."}},
 {n:120,ans:["B"],stem:"An administrator needs to perform several maintenance tasks on a managed firewall directly from the Panorama console without using the Context Switch feature. Which set of tasks can the administrator fully execute from the Panorama UI?",opts:{"A":"Edit a post-rule. Create a new certificate profile. Configure the firewall's hostname.","B":"Download and install a new content update. View current firewall session details. Initiate a device reboot.","C":"Create a new zone. Configure a new virtual router. View the local ACC on the firewall.","D":"Modify the IP address of a Layer 3 interface. Configure a new local administrator account. Edit a pre-rule."}},
-{n:121,ans:["B"],stem:"When deploying a pair of Palo Alto Networks firewalls in an active/active high availability (HA) cluster, what is the dedicated role of the HA3 link?",opts:{"A":"Control plane synchronization for heartbeats and state information","B":"Packet forwarding for session setup and asymmetric traffic","C":"Management plane synchronization for configurations and policies","D":"Data plane synchronization for session tables and forwarding tables"}}
+{n:121,ans:["B"],stem:"When deploying a pair of Palo Alto Networks firewalls in an active/active high availability (HA) cluster, what is the dedicated role of the HA3 link?",opts:{"A":"Control plane synchronization for heartbeats and state information","B":"Packet forwarding for session setup and asymmetric traffic","C":"Management plane synchronization for configurations and policies","D":"Data plane synchronization for session tables and forwarding tables"}},
+{n:122,ans:["B"],stem:"An administrator needs to deploy identical security policies to multiple firewalls with minor variations. Which Panorama feature supports this requirement?",opts:{"A":"Log collector group","B":"Device group hierarchy","C":"TLS service profile","D":"HA1 backup"}},
+{n:123,ans:["D"],stem:"Which tool allows automation using YAML playbooks?",opts:{"A":"Terraform","B":"CLI macro","C":"REST API","D":"Ansible"}},
+{n:124,ans:["A"],stem:"In GlobalProtect split tunnel configuration, excluding internal subnets will result in what behavior?",opts:{"A":"Internal traffic bypasses the VPN tunnel","B":"Internal traffic is dropped","C":"Internal traffic is encrypted twice","D":"Gateway authentication fails"}},
+{n:125,multi:true,ans:["A","B"],stem:"When configuring virtual systems (VSYS), which resources can be assigned per VSYS? (Choose two.)",opts:{"A":"Interfaces","B":"Virtual routers","C":"Log collector groups","D":"GlobalProtect portals"}},
+{n:126,ans:["C"],stem:"Which feature allows viewing application trends across devices in Panorama?",opts:{"A":"NAT preview","B":"VSYS","C":"ACC","D":"HA monitoring"}},
+{n:127,ans:["C"],stem:"What is the purpose of the HA1 backup link?",opts:{"A":"Synchronize sessions","B":"Encrypt VPN tunnels","C":"Provide redundancy for control traffic","D":"Monitor routes"}},
+{n:128,ans:["D"],stem:"Which configuration ensures logs are sent to Panorama instead of stored locally?",opts:{"A":"HA preemption","B":"NAT rule","C":"TLS service profile","D":"Log collector group association"}},
+{n:129,ans:["B"],stem:"An engineer deploys a VM-Series firewall in a public cloud environment but management connectivity fails. Which configuration should be verified first?",opts:{"A":"Security policy rules","B":"Management interface IP configuration","C":"OSPF area","D":"Decryption profile"}},
+{n:130,ans:["A"],stem:"Which Panorama commit type pushes configuration changes to managed firewalls?",opts:{"A":"Commit and Push","B":"Commit to Panorama","C":"Commit","D":"Local commit"}}
 ];
 
 const STORAGE_KEY = 'ngfw_quiz_state_v2';
