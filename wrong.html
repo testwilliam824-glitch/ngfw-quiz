@@ -57,7 +57,6 @@
 </div>
 
 <div class="controls">
-  <button class="toggle-cn" onclick="toggleCn()">🇹🇼 中文顯示：<span id="cnState">開</span></button>
   <button onclick="syncWrong()">🔄 重新同步錯題</button>
   <button onclick="resetMastered()">↩️ 還原已掌握</button>
   <button onclick="window.location.href='./'">← 回主測驗站</button>
@@ -204,7 +203,6 @@ const MASTERED_KEY='ngfw_mastered_v1';
 const WRONG_STATE_KEY='ngfw_wrong_state_v1';
 let wrongState=JSON.parse(localStorage.getItem(WRONG_STATE_KEY)||'{}');
 let mastered=new Set(JSON.parse(localStorage.getItem(MASTERED_KEY)||'[]'));
-let showCn=localStorage.getItem('ngfw_wrong_cn')!=='0';
 let displayList=[];
 
 function save(){ localStorage.setItem(WRONG_STATE_KEY, JSON.stringify(wrongState)); }
@@ -222,8 +220,6 @@ function getWrongQns(){
 }
 
 function render(){
-  document.body.classList.toggle('cn-hidden', !showCn);
-  document.getElementById('cnState').textContent = showCn?'開':'關';
   const wrongQns=getWrongQns();
   const container=document.getElementById('quiz');
   container.innerHTML='';
@@ -251,12 +247,10 @@ function render(){
     let optsHtml='';
     for(const dK of ['A','B','C','D']){
       const oK=optMap[dK]; if(!oK||!q.opts[oK]) continue;
-      const cn=q.optsZh&&q.optsZh[oK]?'<span class="cn">'+esc(q.optsZh[oK])+'</span>':'';
-      optsHtml+='<label class="opt" data-q="'+q.n+'" data-k="'+oK+'"><input type="'+inputType+'" name="wq'+q.n+'" value="'+oK+'" onchange="onSel('+q.n+')"><b>'+dK+'.</b> '+esc(q.opts[oK])+cn+'</label>';
+      optsHtml+='<label class="opt" data-q="'+q.n+'" data-k="'+oK+'"><input type="'+inputType+'" name="wq'+q.n+'" value="'+oK+'" onchange="onSel('+q.n+')"><b>'+dK+'.</b> '+esc(q.opts[oK])+'</label>';
     }
     div.innerHTML='<div class="num">錯題 '+(idx+1)+' / '+displayList.length+'　<span style="color:#888;font-weight:400">(原題庫 Q'+q.n+' · '+esc(q.topic)+')</span> '+multiHint+'</div>'+
       '<div class="stem">'+esc(q.stem)+'</div>'+
-      (q.qZh?'<div class="stem-cn">'+esc(q.qZh)+'</div>':'')+
       optsHtml+
       '<button class="submit" id="wbtn'+q.n+'" onclick="check('+q.n+')">送出答案</button>'+
       '<div class="feedback" id="wfb'+q.n+'" style="display:none"></div>';
@@ -336,7 +330,6 @@ function resetMastered(){
   if(!confirm('確定要把「已掌握」的題目全部放回錯題本重練？')) return;
   mastered=new Set(); saveMastered(); render();
 }
-function toggleCn(){ showCn=!showCn; localStorage.setItem('ngfw_wrong_cn',showCn?'1':'0'); render(); }
 
 render();
 </script>
