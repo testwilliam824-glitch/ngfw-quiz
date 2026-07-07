@@ -57,6 +57,7 @@
 </div>
 
 <div class="controls">
+  <button id="modeBtn" onclick="toggleMode()" style="background:#16a34a;color:#fff;border-color:#16a34a;font-weight:600">📚 模式：全部題目</button>
   <button onclick="reshuffle()" style="background:#1E2761;color:#fff;border-color:#1E2761;font-weight:600">🎲 重新洗牌</button>
   <button onclick="resetAll()">🔄 全部重置</button>
   <button onclick="toggleList()">📋 題號跳轉</button>
@@ -239,13 +240,29 @@ function buildShuffle() {
   saveShuffle();
 }
 
+let quizMode = localStorage.getItem('ngfw_main_mode') || 'all';
+
+function getWrongQns() {
+  const s = new Set();
+  for (const n in state) { if (state[n] && state[n].submitted && state[n].correct === false) s.add(+n); }
+  return s;
+}
+
 function renderQuiz() {
   if (!shuffleMap) buildShuffle();
   // Build display order
   displayOrder = QUESTIONS.slice().sort((a,b) => shuffleMap[a.n].idx - shuffleMap[b.n].idx);
+  if (quizMode === 'wrong') {
+    const wrongSet = getWrongQns();
+    displayOrder = displayOrder.filter(q => wrongSet.has(q.n));
+  }
 
   const container = document.getElementById('quiz');
   container.innerHTML = '';
+  if (quizMode === 'wrong' && displayOrder.length === 0) {
+    container.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px 24px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><h2 style="color:#16a34a;margin:0 0 12px">🎉 目前沒有錯題！</h2><p style="color:#555;line-height:1.6">切回「全部題目」模式練習，<br>答錯的題目會自動被收進「只練錯題」模式。</p></div>';
+    updateModeBtn(); renderList(); updateStats(); return;
+  }
   displayOrder.forEach((q, displayIdx) => {
     const div = document.createElement('div');
     div.className = 'q';
@@ -274,6 +291,27 @@ function renderQuiz() {
   restoreState();
   renderList();
   updateStats();
+  updateModeBtn();
+}
+
+function updateModeBtn() {
+  const b = document.getElementById('modeBtn');
+  if (!b) return;
+  if (quizMode === 'wrong') {
+    const n = getWrongQns().size;
+    b.textContent = '🔴 模式：只練錯題 (' + n + ')';
+    b.style.background = '#C8102E'; b.style.borderColor = '#C8102E';
+  } else {
+    b.textContent = '📚 模式：全部題目';
+    b.style.background = '#16a34a'; b.style.borderColor = '#16a34a';
+  }
+}
+
+function toggleMode() {
+  quizMode = (quizMode === 'all') ? 'wrong' : 'all';
+  localStorage.setItem('ngfw_main_mode', quizMode);
+  renderQuiz();
+  window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 function reshuffle() {
@@ -378,6 +416,7 @@ function updateStats() {
   document.getElementById('okCnt').textContent = ok;
   document.getElementById('ngCnt').textContent = ng;
   document.getElementById('rate').textContent = answered ? Math.round(ok/answered*100)+'%' : '—';
+  updateModeBtn();
 }
 
 function renderList() {
