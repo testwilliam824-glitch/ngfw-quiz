@@ -241,12 +241,40 @@ function buildShuffle() {
 }
 
 let quizMode = localStorage.getItem('ngfw_main_mode') || 'all';
+let wrongBook = new Set(JSON.parse(localStorage.getItem('ngfw_wrongbook') || '[]'));
+// 相容舊資料：把先前答錯的題也納入錯題本
+for (const n in state) { if (state[n] && state[n].submitted && state[n].correct === false) wrongBook.add(+n); }
+function saveWrongBook() { localStorage.setItem('ngfw_wrongbook', JSON.stringify([...wrongBook])); }
 
-function getWrongQns() {
-  const s = new Set();
-  for (const n in state) { if (state[n] && state[n].submitted && state[n].correct === false) s.add(+n); }
-  return s;
+function reshuffleOne(n) {
+  const q = QUESTIONS.find(x => x.n === n); if (!q || !shuffleMap[n]) return;
+  const keys = ['A','B','C','D'].filter(k => q.opts[k]);
+  const sh = shuffleArray(keys); const om = {};
+  ['A','B','C','D'].forEach((L,i) => { if (sh[i]) om[L] = sh[i]; });
+  shuffleMap[n].optMap = om;
 }
+
+// 🔁 重練整批錯題：清除作答紀錄 + 重新洗牌選項（題目保留在錯題本，可反覆練）
+function replayWrong() {
+  if (wrongBook.size === 0) { alert('目前沒有錯題'); return; }
+  if (!confirm('要把錯題本這 ' + wrongBook.size + ' 題的作答紀錄清除、重新洗牌，再練一遍嗎？\n（題目仍留在錯題本，可無限次重練）')) return;
+  wrongBook.forEach(n => { delete state[n]; reshuffleOne(n); });
+  saveState(); saveShuffle();
+  renderQuiz();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// 🗑️ 把已答對的題移出錯題本
+function cleanWrongBook() {
+  const mastered = [...wrongBook].filter(n => state[n] && state[n].submitted && state[n].correct === true);
+  if (mastered.length === 0) { alert('沒有已答對的題可移除'); return; }
+  if (!confirm('要把 ' + mastered.length + ' 題「已答對」的題目移出錯題本嗎？')) return;
+  mastered.forEach(n => wrongBook.delete(n));
+  saveWrongBook();
+  renderQuiz();
+}
+
+function getWrongQns() { return wrongBook; }
 
 function renderQuiz() {
   if (!shuffleMap) buildShuffle();
@@ -262,6 +290,14 @@ function renderQuiz() {
   if (quizMode === 'wrong' && displayOrder.length === 0) {
     container.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px 24px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><h2 style="color:#16a34a;margin:0 0 12px">🎉 目前沒有錯題！</h2><p style="color:#555;line-height:1.6">切回「全部題目」模式練習，<br>答錯的題目會自動被收進「只練錯題」模式。</p></div>';
     updateModeBtn(); renderList(); updateStats(); return;
+  }
+  if (quizMode === 'wrong') {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+    bar.innerHTML = '<span style="font-size:14px;color:#555;font-weight:600;margin-right:auto">🔴 錯題本共 ' + wrongBook.size + ' 題（答對也保留，可反覆練）</span>' +
+      '<button onclick="replayWrong()" style="background:#C8102E;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🔁 重練整批</button>' +
+      '<button onclick="cleanWrongBook()" style="background:#fff;border:1px solid #ddd;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">🗑️ 移出已答對</button>';
+    container.appendChild(bar);
   }
   displayOrder.forEach((q, displayIdx) => {
     const div = document.createElement('div');
@@ -354,6 +390,7 @@ function checkAnswer(n) {
   const correct = arrayEqual([...sel].sort(), [...q.ans].sort());
   state[n] = { sel, submitted: true, correct };
   saveState();
+  if (!correct) { wrongBook.add(n); saveWrongBook(); }  // 答錯就記進錯題本（持久保留，可反覆練）
   showResult(n);
   updateStats();
   renderList();
@@ -443,9 +480,11 @@ function toggleList() {
 }
 
 function resetAll() {
-  if (!confirm('確定要清除全部作答紀錄並重新洗牌？')) return;
+  if (!confirm('確定要清除全部作答紀錄、錯題本並重新洗牌？')) return;
   state = {};
   saveState();
+  wrongBook = new Set();
+  saveWrongBook();
   localStorage.removeItem(SHUFFLE_KEY);
   shuffleMap = null;
   location.reload();
